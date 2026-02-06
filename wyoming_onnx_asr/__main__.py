@@ -48,7 +48,7 @@ async def main() -> None:
     )
     parser.add_argument(
         "--openvino-device",
-        default="GPU",
+        default="CPU",
         help="OpenVINO device type when --device=openvino. "
         "Options: CPU, GPU, NPU, AUTO, HETERO:GPU,CPU, AUTO:GPU,CPU (default: GPU)",
     )
