@@ -14,5 +14,3 @@ services:
       - "10300:10300"
     devices:
       - /dev/dri:/dev/dri
-    group_add:
-      - "109"  # render group for Intel GPU access
