@@ -48,9 +48,9 @@ async def main() -> None:
     )
     parser.add_argument(
         "--openvino-device",
-        default="CPU",
+        default="CPU",  # CPU is faster than GPU for ONNX ASR
         help="OpenVINO device type when --device=openvino. "
-        "Options: CPU, GPU, NPU, AUTO, HETERO:GPU,CPU, AUTO:GPU,CPU (default: GPU)",
+        "Options: CPU, GPU, AUTO (default: CPU)",
     )
 
     parser.add_argument("--debug", action="store_true", help="Log DEBUG messages")
