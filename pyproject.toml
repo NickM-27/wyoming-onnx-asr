@@ -60,4 +60,4 @@ disallow_untyped_defs = true
 cpu = ["onnx-asr[cpu]>=0.6"]
 gpu = ["onnxruntime-gpu[cuda,cudnn]>=1.24.1"]
 gpu-trt = ["onnxruntime-gpu[cuda,cudnn]>=1.24.1", "tensorrt-cu12-libs==10.15.*"]
-denoise = ["noisereduce>=3.0.3", "scipy>=1.11"]
+denoise = ["noisereduce>=3.0.3", "scipy>=1.11", "pyloudnorm>=0.1.1"]
