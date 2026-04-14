@@ -59,6 +59,6 @@ def build_denoiser(enabled: bool) -> Optional[DeepFilterNetDenoiser]:
         return DeepFilterNetDenoiser()
     except ImportError as e:
         raise RuntimeError(
-            "--denoise requires the 'denoise' extra: "
-            "pip install 'wyoming-onnx-asr[denoise]'"
+            f"--denoise requires the 'denoise' extra "
+            f"(pip install 'wyoming-onnx-asr[denoise]'); import failed: {e!r}"
         ) from e
