@@ -19,7 +19,7 @@ from wyoming.event import Event
 from wyoming.info import Describe, Info
 from wyoming.server import AsyncEventHandler
 
-from .denoise import ClearVoiceDenoiser
+from .denoise import NoiseReduceDenoiser
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class NemoAsrEventHandler(AsyncEventHandler):
         model_lock: asyncio.Lock,
         *args,
         initial_prompt: Optional[str] = None,
-        denoiser: Optional[ClearVoiceDenoiser] = None,
+        denoiser: Optional[NoiseReduceDenoiser] = None,
         debug_audio_dir: Optional[str] = None,
         **kwargs,
     ) -> None:
