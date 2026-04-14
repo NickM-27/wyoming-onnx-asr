@@ -4,7 +4,10 @@ import asyncio
 import logging
 import os
 import tempfile
+import time
+import uuid
 import wave
+from datetime import datetime
 from typing import Optional
 
 import numpy as np
@@ -15,6 +18,8 @@ from wyoming.audio import AudioChunk, AudioStop
 from wyoming.event import Event
 from wyoming.info import Describe, Info
 from wyoming.server import AsyncEventHandler
+
+from .denoise import DeepFilterNetDenoiser
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +34,8 @@ class NemoAsrEventHandler(AsyncEventHandler):
         model_lock: asyncio.Lock,
         *args,
         initial_prompt: Optional[str] = None,
+        denoiser: Optional[DeepFilterNetDenoiser] = None,
+        debug_audio_dir: Optional[str] = None,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -37,6 +44,8 @@ class NemoAsrEventHandler(AsyncEventHandler):
         self.models = models
         self.model_lock = model_lock
         self.initial_prompt = initial_prompt
+        self.denoiser = denoiser
+        self.debug_audio_dir = debug_audio_dir
         self.request_language: Optional[str] = None
         self._wav_dir = tempfile.TemporaryDirectory()
         self._wav_path = os.path.join(self._wav_dir.name, "speech.wav")
@@ -69,6 +78,30 @@ class NemoAsrEventHandler(AsyncEventHandler):
             # Make mono by averaging the channels
             if len(waveform.shape) > 1:
                 waveform = np.mean(waveform, axis=1)
+
+            req_id: Optional[str] = None
+            if self.debug_audio_dir:
+                req_id = (
+                    f"{datetime.now():%Y%m%d-%H%M%S-%f}-{uuid.uuid4().hex[:6]}"
+                )
+                self._save_debug_wav(waveform, sample_rate, req_id, "pre")
+
+            if self.denoiser is not None:
+                try:
+                    t0 = time.perf_counter()
+                    waveform = self.denoiser.process(waveform, sample_rate)
+                    _LOGGER.debug(
+                        "Denoise (%s) %.0f ms",
+                        self.denoiser.name,
+                        (time.perf_counter() - t0) * 1000,
+                    )
+                except Exception as e:
+                    _LOGGER.warning(
+                        "Denoise failed, using original waveform: %s", e
+                    )
+
+            if self.debug_audio_dir and req_id is not None:
+                self._save_debug_wav(waveform, sample_rate, req_id, "post")
 
             # Decide on language and model
             lang = self.request_language or "en"
@@ -144,3 +177,18 @@ class NemoAsrEventHandler(AsyncEventHandler):
             return True
 
         return True
+
+    def _save_debug_wav(
+        self,
+        waveform: np.ndarray,
+        sample_rate: int,
+        req_id: str,
+        suffix: str,
+    ) -> None:
+        if not self.debug_audio_dir:
+            return
+        path = os.path.join(self.debug_audio_dir, f"{req_id}-{suffix}.wav")
+        try:
+            sf.write(path, waveform, sample_rate, subtype="PCM_16")
+        except Exception as e:
+            _LOGGER.warning("Failed to save debug audio %s: %s", path, e)

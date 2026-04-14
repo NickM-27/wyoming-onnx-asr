@@ -13,6 +13,7 @@ from wyoming.info import AsrModel, AsrProgram, Attribution, Info
 from wyoming.server import AsyncServer
 
 from . import __version__
+from .denoise import build_denoiser
 from .handler import NemoAsrEventHandler
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +46,20 @@ async def main() -> None:
         default="cpu",
         choices=["cpu", "gpu", "gpu-trt"],
         help="Device to use for inference (default: cpu)",
+    )
+    parser.add_argument(
+        "--denoise",
+        action="store_true",
+        default=os.environ.get("ONNX_ASR_DENOISE", "true").lower()
+        in ("1", "true", "yes"),
+        help="Enable DeepFilterNet speech enhancement before ASR",
+    )
+    parser.add_argument(
+        "--save-debug-audio",
+        action="store_true",
+        default=os.environ.get("ONNX_ASR_SAVE_DEBUG_AUDIO", "").lower()
+        in ("1", "true", "yes"),
+        help="Save paired pre/post denoise WAVs under <model-dir>/debug-audio/",
     )
 
     parser.add_argument("--debug", action="store_true", help="Log DEBUG messages")
@@ -212,11 +227,35 @@ async def main() -> None:
         _LOGGER.error("Startup validation failed - invalid server URI configuration")
         sys.exit(1)
 
+    # Cache DeepFilterNet model alongside ASR models
+    os.environ.setdefault(
+        "DF_CACHE_DIR", os.path.join(model_dir, "deepfilternet")
+    )
+
+    denoiser = build_denoiser(args.denoise)
+    if denoiser is not None:
+        _LOGGER.info("Denoise backend: %s", denoiser.name)
+
+    debug_audio_dir: str | None = None
+    if args.save_debug_audio:
+        debug_audio_dir = os.path.join(model_dir, "debug-audio")
+        os.makedirs(debug_audio_dir, exist_ok=True)
+        _LOGGER.info("Saving pre/post denoise audio to %s", debug_audio_dir)
+
     _LOGGER.info("Ready")
     # Wrap a single shared asyncio.Lock() for all models (unchanged)
     model_lock = asyncio.Lock()
 
-    await server.run(partial(NemoAsrEventHandler, wyoming_info, models, model_lock))
+    await server.run(
+        partial(
+            NemoAsrEventHandler,
+            wyoming_info,
+            models,
+            model_lock,
+            denoiser=denoiser,
+            debug_audio_dir=debug_audio_dir,
+        )
+    )
 
 
 # -----------------------------------------------------------------------------
