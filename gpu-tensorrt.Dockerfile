@@ -13,11 +13,6 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
 FROM builder-base AS packages-builder
-# deepfilterlib sdist requires Rust/cargo to build on Python 3.12
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates build-essential \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal \
-    && rm -rf /var/lib/apt/lists/*
-ENV PATH="/root/.cargo/bin:$PATH"
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
