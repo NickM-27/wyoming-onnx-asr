@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 from functools import partial
-
+import numpy as np
 import onnx_asr
 
 import onnxruntime
@@ -211,6 +211,22 @@ async def main() -> None:
         _LOGGER.error("Failed to create server from URI '%s': %s", args.uri, str(e))
         _LOGGER.error("Startup validation failed - invalid server URI configuration")
         sys.exit(1)
+    # Warm up loaded ASR models once so the first client request is not delayed by
+    # lazy initialization and JIT/graph compilation inside ONNX Runtime.
+    warmup_waveform = np.zeros(16000, dtype=np.float32)
+    for model_name, model in models.items():
+        try:
+            _LOGGER.info("Warming up %s model...", model_name)
+            model.recognize(
+                warmup_waveform,
+                language="en",
+                sample_rate=16000,
+            )
+            _LOGGER.info("Warm-up complete for %s model", model_name)
+        except Exception as e:
+            _LOGGER.warning(
+                "ASR warm-up failed for %s model: %s", model_name, e
+            )
 
     _LOGGER.info("Ready")
     # Wrap a single shared asyncio.Lock() for all models (unchanged)
